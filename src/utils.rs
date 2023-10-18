@@ -17,12 +17,12 @@ where
         &mut self,
         fmt: fmt::Arguments<'_>,
     ) -> Result<(), WriteFmtError<Self::Error>> {
-        struct ImmediateWrite<'a, T, const SIZE: usize = 128> {
+        struct ImmediateAsyncWrite<'a, T> {
             sink: &'a mut T,
-            spill: Vec<u8, SIZE>,
+            spill: Vec<u8, 128>,
         }
 
-        impl<'a, T: Write> fmt::Write for ImmediateWrite<'a, T> {
+        impl<'a, T: Write> fmt::Write for ImmediateAsyncWrite<'a, T> {
             fn write_str(&mut self, data: &str) -> fmt::Result {
                 let data = data.as_bytes();
 
@@ -46,21 +46,26 @@ where
             }
         }
 
-        impl<'a, T: Write> ImmediateWrite<'a, T> {
+        impl<'a, T: Write> ImmediateAsyncWrite<'a, T> {
+            fn new(sink: &'a mut T) -> Self {
+                Self {
+                    sink,
+                    spill: Vec::new(),
+                }
+            }
+
+            /// Consumes the remaining data in the spill buffer
+            /// and writes it to the sink.
             async fn consume(self) -> Result<(), T::Error> {
                 if self.spill.is_empty() {
                     return Ok(());
                 }
 
-                self.sink.write(&self.spill).await.map(|_| ())
+                self.sink.write_all(&self.spill).await.map(|_| ())
             }
         }
 
-        let mut iw = ImmediateWrite {
-            sink: self,
-            spill: Default::default(),
-        };
-
+        let mut iw = ImmediateAsyncWrite::new(self);
         fmt::write(&mut iw, fmt).map_err(|_| WriteFmtError::FmtError)?;
         iw.consume().await?;
 
