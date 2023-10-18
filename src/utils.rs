@@ -24,25 +24,25 @@ where
 
         impl<'a, T: Write> fmt::Write for ImmediateAsyncWrite<'a, T> {
             fn write_str(&mut self, data: &str) -> fmt::Result {
-                let data = data.as_bytes();
+                let mut data = data.as_bytes();
 
-                let fut = self.sink.write(data);
-                let fut = core::pin::pin!(fut);
-
-                let spill = if self.spill.is_empty() {
-                    // See if data can be immediately written,
-                    // if it fails (future returns pending), use the spill buffer instead.
-                    match fut.now_or_never() {
-                        // TODO: carry error out somehow, probably through self.error
-                        Some(Err(_todo)) => return Err(fmt::Error),
-                        Some(Ok(size)) => &data[size..],
-                        None => data,
+                if self.spill.is_empty() {
+                    loop {
+                        let fut = self.sink.write(data);
+                        let fut = core::pin::pin!(fut);
+                        // See if data can be immediately written,
+                        // if it fails (future returns pending), use the spill buffer instead.
+                        match fut.now_or_never() {
+                            // TODO: carry error out somehow, probably through self.error
+                            Some(Err(_todo)) => return Err(fmt::Error),
+                            Some(Ok(size)) if size == data.len() => return Ok(()),
+                            Some(Ok(size)) => data = &data[size..],
+                            None => break,
+                        }
                     }
-                } else {
-                    data
-                };
+                }
 
-                self.spill.extend_from_slice(spill).map_err(|_| fmt::Error)
+                self.spill.extend_from_slice(data).map_err(|_| fmt::Error)
             }
         }
 
