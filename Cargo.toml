@@ -12,3 +12,5 @@ edition = "2021"
 embedded-io = { version = "0.4", features = ["async"] }
 httparse = { version = "1.8", default-features = false }
 heapless = { version = "0.7", default-features = false }
+# TODO: would be nice to get rid of the future dependency
+futures-util = { version = "0.3", default-features = false }
