@@ -2,6 +2,7 @@ use core::{marker::PhantomData, mem::MaybeUninit};
 
 use crate::{
     handler,
+    parse::PathAndQuery,
     request::{record_header_indices, Body, HeaderIndices, Headers, Parts},
     route::{self, Route},
     utils, IntoResponse, Method, Read, Request, Write,
@@ -166,15 +167,17 @@ impl<R: Route<S>, S, HasRoute> Router<S, R, S, HasRoute> {
             }
         };
 
+        let paq = PathAndQuery::parse(path).unwrap();
         let parts = Parts {
             method: Method::new(method).unwrap(),
-            path,
+            path: paq.path(),
+            query: paq.query(),
             headers: Headers { headers, buf: &buf },
         };
 
         let content_length = parts
             .headers
-            .get("Content-Length")
+            .get_first("Content-Length")
             .and_then(|value| value.parse::<usize>().ok())
             .unwrap_or(0);
 

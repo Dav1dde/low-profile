@@ -7,10 +7,12 @@
     maybe_uninit_slice
 )]
 
+mod error;
 pub mod extract;
 mod handler;
 mod io;
 mod method;
+mod parse;
 pub mod request;
 pub mod response;
 mod route;

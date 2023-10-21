@@ -38,6 +38,7 @@ impl<'a, R> fmt::Debug for Request<'a, R> {
         f.debug_struct("Request")
             .field("method", &self.parts.method)
             .field("path", &self.parts.path)
+            .field("query", &self.parts.query)
             .finish_non_exhaustive()
     }
 }
@@ -45,6 +46,7 @@ impl<'a, R> fmt::Debug for Request<'a, R> {
 pub struct Parts<'a> {
     pub method: Method<'a>,
     pub path: &'a str,
+    pub query: Option<&'a str>,
     pub headers: Headers<'a>,
 }
 
@@ -71,7 +73,7 @@ impl<'a> Headers<'a> {
         self.try_iter().flatten()
     }
 
-    pub fn get(&self, key: &str) -> Option<&'a str> {
+    pub fn get_first(&self, key: &str) -> Option<&'a str> {
         self.iter()
             .find_map(|(header_key, value)| key.eq_ignore_ascii_case(header_key).then_some(value))
     }
