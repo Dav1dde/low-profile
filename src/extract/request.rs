@@ -1,8 +1,15 @@
+use core::convert::Infallible;
+
 use super::FromRequest;
 use crate::{Read, Request};
 
 impl<'a, const SIZE: usize, S> FromRequest<'a, S> for heapless::Vec<u8, SIZE> {
-    async fn from_request<R: Read>(mut req: Request<'a, R>, _state: &S) -> Self {
+    type Rejection = Infallible;
+
+    async fn from_request<R: Read>(
+        mut req: Request<'a, R>,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
         let mut data = Self::default();
         data.resize_default(data.capacity()).unwrap();
 
@@ -30,13 +37,18 @@ impl<'a, const SIZE: usize, S> FromRequest<'a, S> for heapless::Vec<u8, SIZE> {
         }
 
         data.truncate(current);
-        data
+        Ok(data)
     }
 }
 
 impl<'a, const SIZE: usize, S> FromRequest<'a, S> for heapless::String<SIZE> {
-    async fn from_request<R: Read>(req: Request<'a, R>, _state: &S) -> Self {
-        let data = heapless::Vec::<u8, SIZE>::from_request(req, &()).await;
-        core::str::from_utf8(&data).expect("TODO").into()
+    type Rejection = Infallible;
+
+    async fn from_request<R: Read>(
+        req: Request<'a, R>,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let data = heapless::Vec::<u8, SIZE>::from_request(req, &()).await?;
+        Ok(core::str::from_utf8(&data).expect("TODO").into())
     }
 }

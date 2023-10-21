@@ -1,13 +1,23 @@
 use core::{future::Future, marker::PhantomData};
 
-use crate::{route::Route, FromRequest, FromRequestParts, IntoResponse, Read, Request};
+use crate::{
+    either::Either, route::Route, FromRequest, FromRequestParts, IntoResponse, Read, Request,
+};
 
 pub trait Handler<S> {
-    async fn call<Body: Read>(&self, req: Request<'_, Body>, state: &S) -> impl IntoResponse;
+    fn call<Body: Read>(
+        &self,
+        req: Request<'_, Body>,
+        state: &S,
+    ) -> impl Future<Output = impl IntoResponse>;
 }
 
 pub trait HandlerFunction<S, Params> {
-    async fn call<Body: Read>(&self, req: Request<'_, Body>, state: &S) -> impl IntoResponse;
+    fn call<Body: Read>(
+        &self,
+        req: Request<'_, Body>,
+        state: &S,
+    ) -> impl Future<Output = impl IntoResponse>;
 }
 
 impl<S, Fut, F, Ret> HandlerFunction<S, ()> for F
@@ -19,6 +29,54 @@ where
     async fn call<Body: Read>(&self, _req: Request<'_, Body>, _state: &S) -> impl IntoResponse {
         self().await
     }
+}
+
+// TODO: clean this up, should be able to get rid of quite a bit duplicated code
+macro_rules! impl_handler_func_inner_extract {
+    ($parts:ident, $state:ident,) => {
+    };
+    ($parts:ident, $state:ident, $v:ident) => {
+        let $v = match $v::from_request_parts(&mut $parts, $state).await {
+            Ok(o) => o,
+            Err(err) => return impl_handler_func_inner_extract!(@builderr-right, ($v), err),
+        };
+    };
+    ($parts:ident, $state:ident, $v:ident, $($x:tt)*) => {
+        let $v = match $v::from_request_parts(&mut $parts, $state).await {
+            Ok(o) => o,
+            Err(err) => return impl_handler_func_inner_extract!(@builderr-right, ($v, $($x)*), err),
+        };
+
+        impl_handler_func_inner_extract!(@cont, $parts, $state, $($x)*)
+    };
+
+    (@cont, $parts:ident, $state:ident, $v:ident) => {
+        let $v = match $v::from_request_parts(&mut $parts, $state).await {
+            Ok(o) => o,
+            Err(err) => return impl_handler_func_inner_extract!(@builderr, ($v), err),
+        };
+    };
+    (@cont, $parts:ident, $state:ident, $v:ident, $($x:tt)*) => {
+        let $v = match $v::from_request_parts(&mut $parts, $state).await {
+            Ok(o) => o,
+            Err(err) => return impl_handler_func_inner_extract!(@builderr, ($v, $($x)*), err),
+        };
+
+        impl_handler_func_inner_extract!(@cont, $parts, $state, $($x)*)
+    };
+
+    (@builderr-right, ($v:ident), $err:expr) => { Either::Right(Either::Right($err)) };
+    (@builderr-right, ($v:ident, $($x:tt)*), $err:expr) => { Either::Right(
+        impl_handler_func_inner_extract!(@builderr-right, ($($x)*), $err)
+    )};
+
+    (@builderr, ($v:ident), $err:expr) => { Either::Right(Either::Right(Either::Left($err))) };
+    (@builderr, ($v:ident, $($x:tt)*), $err:expr) => { Either::Right(
+        impl_handler_func_inner_extract!(@builderr, ($($x)*), $err)
+    )};
+
+    (@builderr-last, (), $err:expr) => { Either::Right($err) };
+    (@builderr-last, ($($x:tt)*), $err:expr) => { Either::Right(Either::Left($err))};
 }
 
 macro_rules! impl_handler_func {
@@ -38,12 +96,15 @@ macro_rules! impl_handler_func {
             async fn call<Body: Read>(&self, req: Request<'_, Body>, state: &S) -> impl IntoResponse {
                 let (mut parts, body) = req.into_parts();
 
-                $(let $ty = $ty::from_request_parts(&mut parts, state).await;)*
+                impl_handler_func_inner_extract!(parts, state, $($ty),*);
 
                 let req = Request::from_parts(parts, body);
-                let $last = $last::from_request(req, state).await;
+                let $last = match $last::from_request(req, state).await {
+                    Ok(r) => r,
+                    Err(err) => return impl_handler_func_inner_extract!(@builderr-last, ($($ty,)*), err),
+                };
 
-                self($($ty,)* $last).await
+                Either::Left(self($($ty,)* $last).await)
             }
         }
     };

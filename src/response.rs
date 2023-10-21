@@ -28,9 +28,17 @@ impl<Body> Response<Body> {
 }
 
 pub trait IntoResponse {
-    type Body: Read;
+    type Body: Read; // TODO: this should probably be a Body trait
 
     fn into_response(self) -> Response<Self::Body>;
+}
+
+impl IntoResponse for core::convert::Infallible {
+    type Body = &'static [u8];
+
+    fn into_response(self) -> Response<Self::Body> {
+        match self {}
+    }
 }
 
 impl<Body: Read> IntoResponse for Response<Body> {

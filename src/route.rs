@@ -1,4 +1,6 @@
-use crate::{handler, io::Either, IntoResponse, Read, Request};
+use core::future::Future;
+
+use crate::{either::Either, handler, IntoResponse, Read, Request};
 
 macro_rules! impl_handler_func {
     ($name:ident, $method:ident) => {
@@ -53,11 +55,11 @@ impl<'a, T, R> Decision<'a, T, R> {
 }
 
 pub trait Route<S> {
-    async fn match_request<'a, Body: Read>(
+    fn match_request<'a, Body: Read>(
         &self,
         req: Request<'a, Body>,
         state: &S,
-    ) -> Decision<'a, impl IntoResponse, Body>;
+    ) -> impl Future<Output = Decision<'a, impl IntoResponse, Body>>;
 }
 
 // impl<S, T: Handler<S>> Route<S> for T {

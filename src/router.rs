@@ -200,6 +200,7 @@ impl<R: Route<S>, S, HasRoute> Router<S, R, S, HasRoute> {
 
         let mut body = response.into_body();
         loop {
+            let mut buf = [0; 1024];
             let len = body.read(&mut buf).await.unwrap();
             if len == 0 {
                 break;

@@ -1,9 +1,16 @@
+use core::{convert::Infallible, future::Future};
+
 use super::FromRequestParts;
 use crate::{Headers, Parts};
 
 impl<'a, S> FromRequestParts<'a, S> for Headers<'a> {
-    async fn from_request_parts(parts: &mut Parts<'a>, _state: &S) -> Headers<'a> {
-        parts.headers
+    type Rejection = Infallible;
+
+    async fn from_request_parts(
+        parts: &mut Parts<'a>,
+        _state: &S,
+    ) -> Result<Headers<'a>, Self::Rejection> {
+        Ok(parts.headers)
     }
 }
 
@@ -13,8 +20,14 @@ impl<'a, S, T> FromRequestParts<'a, S> for State<T>
 where
     T: FromRef<S>,
 {
-    async fn from_request_parts(_parts: &mut Parts<'a>, state: &S) -> Self {
-        State(T::from_ref(state))
+    type Rejection = Infallible;
+
+    fn from_request_parts(
+        _parts: &mut Parts<'a>,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> {
+        let val = T::from_ref(state);
+        async move { Ok(State(val)) }
     }
 }
 

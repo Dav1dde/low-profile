@@ -30,11 +30,16 @@ jobs:
         uses: actions/checkout@v4
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
-      - name: Setup Rust
-        uses: esp-rs/xtensa-toolchain@v1.5
+      # - name: Setup Rust
+      #   uses: esp-rs/xtensa-toolchain@v1.5
+      #   with:
+      #     default: true
+      #     buildtargets: esp32s3
+      #     ldproxy: false
+      - uses: actions-rs/toolchain@v1
         with:
-          default: true
-          buildtargets: esp32s3
-          ldproxy: false
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
       - name: Run command
         run: cargo ${{ matrix.action.command }} ${{ matrix.action.args }}

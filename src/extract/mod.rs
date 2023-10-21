@@ -1,4 +1,6 @@
-use crate::{request::Parts, Read, Request};
+use core::future::Future;
+
+use crate::{request::Parts, IntoResponse, Read, Request};
 
 mod request;
 mod request_parts;
@@ -14,19 +16,34 @@ mod private {
 }
 
 pub trait FromRequestParts<'a, S>: Sized {
-    async fn from_request_parts(parts: &mut Parts<'a>, state: &S) -> Self;
+    type Rejection: IntoResponse;
+
+    fn from_request_parts(
+        parts: &mut Parts<'a>,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>>;
 }
 
 pub trait FromRequest<'a, S, M = private::ViaRequest>: Sized {
-    async fn from_request<R: Read>(req: Request<'a, R>, state: &S) -> Self;
+    type Rejection: IntoResponse;
+
+    fn from_request<R: Read>(
+        req: Request<'a, R>,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>>;
 }
 
 impl<'a, S, T> FromRequest<'a, S, private::ViaParts> for T
 where
     T: FromRequestParts<'a, S>,
 {
-    async fn from_request<R: Read>(req: Request<'a, R>, state: &S) -> Self {
+    type Rejection = T::Rejection;
+
+    fn from_request<R: Read>(
+        req: Request<'a, R>,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> {
         let (mut parts, _) = req.into_parts();
-        Self::from_request_parts(&mut parts, state).await
+        async move { Self::from_request_parts(&mut parts, state).await }
     }
 }

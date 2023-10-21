@@ -4,9 +4,11 @@
     async_fn_in_trait,
     type_alias_impl_trait,
     return_position_impl_trait_in_trait,
-    maybe_uninit_slice
+    maybe_uninit_slice,
+    impl_trait_projections
 )]
 
+pub(crate) mod either;
 mod error;
 pub mod extract;
 mod handler;
