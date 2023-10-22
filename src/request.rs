@@ -7,7 +7,7 @@ pub struct Request<'a, R> {
     pub(crate) body: Body<'a, R>,
 }
 
-impl<'a, R: Read> Request<'a, R> {
+impl<'a, R> Request<'a, R> {
     pub fn from_parts(parts: Parts<'a>, body: Body<'a, R>) -> Self {
         Self { parts, body }
     }

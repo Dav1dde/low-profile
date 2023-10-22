@@ -5,7 +5,7 @@ use crate::{
     parse::PathAndQuery,
     request::{record_header_indices, Body, HeaderIndices, Headers, Parts},
     route::{self, Route},
-    utils, IntoResponse, Method, Read, Request, Write,
+    utils, IntoResponse, Method, Read, Request, Service, Write,
 };
 
 mod private {
@@ -120,12 +120,8 @@ where
     }
 }
 
-impl<R: Route<S>, S, HasRoute> Router<S, R, S, HasRoute> {
-    pub async fn serve<Re: Read, Wr: Write<Error = Re::Error>>(
-        &self,
-        mut reader: Re,
-        mut writer: Wr,
-    ) {
+impl<R: Route<S>, S, HasRoute> Service for Router<S, R, S, HasRoute> {
+    async fn serve<Re: Read, Wr: Write<Error = Re::Error>>(&self, mut reader: Re, mut writer: Wr) {
         // TODO: buf size, optinally make the buffer an arg
         let mut buf = [0u8; 2048];
 

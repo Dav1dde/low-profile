@@ -19,6 +19,7 @@ pub mod request;
 pub mod response;
 mod route;
 mod router;
+mod service;
 mod utils;
 
 pub use extract::{FromRef, FromRequest, FromRequestParts};
@@ -28,3 +29,4 @@ pub use request::{Headers, Parts, Request};
 pub use response::{IntoResponse, Response};
 pub use route::{connect, delete, get, head, options, patch, post, put, trace};
 pub use router::Router;
+pub use service::Service;
