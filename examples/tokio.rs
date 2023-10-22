@@ -13,12 +13,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let main = async move {
         loop {
-            let (mut stream, addr) = socket.accept().await?;
+            let (stream, addr) = socket.accept().await?;
             println!("Connection from: {addr}");
 
             let router = Rc::clone(&router);
             tokio::task::spawn_local(async move {
-                let (reader, writer) = stream.split();
+                let (reader, writer) = stream.into_split();
 
                 router
                     .serve(FromTokio::new(reader), FromTokio::new(writer))

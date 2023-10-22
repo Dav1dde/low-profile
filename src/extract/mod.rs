@@ -1,6 +1,6 @@
 use core::future::Future;
 
-use crate::{request::Parts, IntoResponse, Read, Request};
+use crate::{request::Parts, IntoResponse, Request};
 
 mod request;
 mod request_parts;
@@ -24,23 +24,23 @@ pub trait FromRequestParts<'a, S>: Sized {
     ) -> impl Future<Output = Result<Self, Self::Rejection>>;
 }
 
-pub trait FromRequest<'a, S, M = private::ViaRequest>: Sized {
+pub trait FromRequest<'a, S, B, M = private::ViaRequest>: Sized {
     type Rejection: IntoResponse;
 
-    fn from_request<R: Read>(
-        req: Request<'a, R>,
+    fn from_request(
+        req: Request<'a, B>,
         state: &S,
     ) -> impl Future<Output = Result<Self, Self::Rejection>>;
 }
 
-impl<'a, S, T> FromRequest<'a, S, private::ViaParts> for T
+impl<'a, S, B, T> FromRequest<'a, S, B, private::ViaParts> for T
 where
     T: FromRequestParts<'a, S>,
 {
     type Rejection = T::Rejection;
 
-    fn from_request<R: Read>(
-        req: Request<'a, R>,
+    fn from_request(
+        req: Request<'a, B>,
         state: &S,
     ) -> impl Future<Output = Result<Self, Self::Rejection>> {
         let (mut parts, _) = req.into_parts();

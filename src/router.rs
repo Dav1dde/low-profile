@@ -16,13 +16,13 @@ mod private {
     pub enum Untouched {}
 }
 
-pub struct Router<RS, R: Route<RS>, S = (), HasRoute = private::Untouched> {
+pub struct Router<RS, B, R: Route<RS, B>, S = (), HasRoute = private::Untouched> {
     state: S,
     route: R,
-    _priv: PhantomData<(RS, HasRoute)>,
+    _priv: PhantomData<(RS, B, HasRoute)>,
 }
 
-impl<RS> Router<RS, route::NotFound> {
+impl<RS, B> Router<RS, B, route::NotFound> {
     pub fn new() -> Self {
         Self {
             state: (),
@@ -32,19 +32,19 @@ impl<RS> Router<RS, route::NotFound> {
     }
 }
 
-impl<RS> Default for Router<RS, route::NotFound> {
+impl<RS, B> Default for Router<RS, B, route::NotFound> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<R, S> Router<(), R, S, private::Untouched>
+impl<B, R, S> Router<(), B, R, S, private::Untouched>
 where
-    R: Route<()>,
+    R: Route<(), B>,
 {
-    pub fn with_state<S2>(self, state: S2) -> Router<S2, R, S2, private::HasAnyState>
+    pub fn with_state<S2>(self, state: S2) -> Router<S2, B, R, S2, private::HasAnyState>
     where
-        R: Route<S2>,
+        R: Route<S2, B>,
     {
         Router {
             route: self.route,
@@ -54,13 +54,13 @@ where
     }
 }
 
-impl<RS, R, S> Router<RS, R, S, private::HasAnyState>
+impl<RS, B, R, S> Router<RS, B, R, S, private::HasAnyState>
 where
-    R: Route<RS>,
+    R: Route<RS, B>,
 {
-    pub fn with_state<S2>(self, state: S2) -> Router<S2, R, S2, private::HasAnyState>
+    pub fn with_state<S2>(self, state: S2) -> Router<S2, B, R, S2, private::HasAnyState>
     where
-        R: Route<S2>,
+        R: Route<S2, B>,
     {
         Router {
             route: self.route,
@@ -72,17 +72,17 @@ where
 
 macro_rules! impl_method {
     ($method:ident) => {
-        impl<RS, R, S, HasRoute> Router<RS, R, S, HasRoute>
+        impl<RS, B, R, S, HasRoute> Router<RS, B, R, S, HasRoute>
         where
-            R: Route<RS>,
+            R: Route<RS, B>,
         {
             pub fn $method<H, X>(
                 self,
                 path: &'static str,
                 handler: H,
-            ) -> Router<RS, impl Route<RS>, S, private::HasAnyState>
+            ) -> Router<RS, B, impl Route<RS, B>, S, private::HasAnyState>
             where
-                H: handler::HandlerFunction<RS, X>,
+                H: handler::HandlerFunction<RS, B, X>,
             {
                 self.route(path, route::$method(handler))
             }
@@ -100,15 +100,15 @@ impl_method!(connect);
 impl_method!(patch);
 impl_method!(trace);
 
-impl<RS, R, S, HasRoute> Router<RS, R, S, HasRoute>
+impl<RS, B, R, S, HasRoute> Router<RS, B, R, S, HasRoute>
 where
-    R: Route<RS>,
+    R: Route<RS, B>,
 {
-    pub fn route<T: Route<RS>>(
+    pub fn route<T: Route<RS, B>>(
         self,
         path: &'static str,
         route: T,
-    ) -> Router<RS, impl Route<RS>, S, private::HasAnyState> {
+    ) -> Router<RS, B, impl Route<RS, B>, S, private::HasAnyState> {
         Router {
             route: route::Fallback {
                 route: route::Path { path, route },
@@ -120,8 +120,12 @@ where
     }
 }
 
-impl<R: Route<S>, S, HasRoute> Service for Router<S, R, S, HasRoute> {
-    async fn serve<Re: Read, Wr: Write<Error = Re::Error>>(&self, mut reader: Re, mut writer: Wr) {
+impl<B, W, R: Route<S, B>, S, HasRoute> Service<B, W> for Router<S, B, R, S, HasRoute>
+where
+    B: Read,
+    W: Write<Error = B::Error>,
+{
+    async fn serve(&self, mut reader: B, mut writer: W) {
         // TODO: buf size, optinally make the buffer an arg
         let mut buf = [0u8; 2048];
 
