@@ -14,6 +14,7 @@ pub(crate) mod either;
 mod error;
 pub mod extract;
 mod handler;
+pub mod http;
 mod io;
 mod method;
 mod parse;

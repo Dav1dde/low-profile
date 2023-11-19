@@ -5,19 +5,23 @@ use crate::{
 };
 
 pub trait Handler<S> {
+    type Response: IntoResponse;
+
     fn call<Body: Read>(
         &self,
         req: Request<'_, Body>,
         state: &S,
-    ) -> impl Future<Output = impl IntoResponse>;
+    ) -> impl Future<Output = Self::Response>;
 }
 
 pub trait HandlerFunction<S, Params> {
+    type Response: IntoResponse;
+
     fn call<Body: Read>(
         &self,
         req: Request<'_, Body>,
         state: &S,
-    ) -> impl Future<Output = impl IntoResponse>;
+    ) -> impl Future<Output = Self::Response>;
 }
 
 impl<S, Fut, F, Ret> HandlerFunction<S, ()> for F
@@ -26,7 +30,9 @@ where
     Fut: Future<Output = Ret>,
     Ret: IntoResponse,
 {
-    async fn call<Body: Read>(&self, _req: Request<'_, Body>, _state: &S) -> impl IntoResponse {
+    type Response = Ret;
+
+    async fn call<Body: Read>(&self, _req: Request<'_, Body>, _state: &S) -> Self::Response {
         self().await
     }
 }
@@ -77,23 +83,58 @@ macro_rules! impl_handler_func_inner_extract {
 
     (@builderr-last, (), $err:expr) => { Either::Right($err) };
     (@builderr-last, ($($x:tt)*), $err:expr) => { Either::Right(Either::Left($err))};
+
+    (@buildty, $ret:ident, (), $lol:ident) => {
+        Either<$ret, $lol>
+    };
+    (@buildty, $ret:ident, ($($x:tt,)*), $lol:ident) => {
+        Either<$ret, Either<$lol, impl_handler_func_inner_extract!(@build-reverse-either, [$($x),*])>>
+    };
+
+    // build an either from tokens
+    (@build-either, $v:ident, $($x:tt),*) => {
+        Either<$v, impl_handler_func_inner_extract!(@build-either, $($x),*)>
+    };
+    (@build-either, $v:ident) => { $v };
+
+    // build a reverse either from tokens contained within []
+    (@build-reverse-either, [] reversed: [$($x:ident),*]) => {
+        impl_handler_func_inner_extract!(@build-either, $($x),*)
+    };
+    (@build-reverse-either, [$($x:ident),* $(,)?]) => {
+        impl_handler_func_inner_extract!(@build-reverse-either, [$($x),*] reversed: [])
+    };
+    (@build-reverse-either, [$head:ident $(, $tail:ident)*] reversed: [$($reversed:ident),*]) => {
+        impl_handler_func_inner_extract!(@build-reverse-either, [$($tail),*] reversed: [$head $(, $reversed)*])
+    };
 }
 
 macro_rules! impl_handler_func {
     (
-        [$($ty:ident),*], $last:ident
+        [$(($ty:ident, $ty_err:ident)),*], ($last:ident, $last_err:ident)
     ) => {
         #[allow(non_snake_case, unused_mut)]
-        impl<S, Fut, F, Ret, M, $($ty,)* $last> HandlerFunction<S, (M, $($ty,)* $last,)> for F
+        impl<
+            S,
+            Fut,
+            F,
+            Ret,
+            M,
+            $($ty, $ty_err,)*
+            $last, $last_err,
+        > HandlerFunction<S, (M, $($ty,)* $last)> for F
         where
             F: Fn($($ty,)* $last,) -> Fut,
             Fut: Future<Output = Ret>,
             Ret: IntoResponse,
-            $($ty: for<'a> FromRequestParts<'a, S>,)*
-            $last: for<'a> FromRequest<'a, S, M>,
+            $($ty: for<'a> FromRequestParts<'a, S, Rejection = $ty_err>, $ty_err: IntoResponse,)*
+            $last: for<'a> FromRequest<'a, S, M, Rejection = $last_err>,
+            $last_err: IntoResponse,
         {
+            type Response = impl_handler_func_inner_extract!(@buildty, Ret, ($($ty_err,)*), $last_err);
+
             #[allow(unused_variables)]
-            async fn call<Body: Read>(&self, req: Request<'_, Body>, state: &S) -> impl IntoResponse {
+            async fn call<Body: Read>(&self, req: Request<'_, Body>, state: &S) -> Self::Response {
                 let (mut parts, body) = req.into_parts();
 
                 impl_handler_func_inner_extract!(parts, state, $($ty),*);
@@ -113,22 +154,22 @@ macro_rules! impl_handler_func {
 #[rustfmt::skip]
 macro_rules! all_the_tuples {
     ($name:ident) => {
-        $name!([], T1);
-        $name!([T1], T2);
-        $name!([T1, T2], T3);
-        $name!([T1, T2, T3], T4);
-        $name!([T1, T2, T3, T4], T5);
-        $name!([T1, T2, T3, T4, T5], T6);
-        $name!([T1, T2, T3, T4, T5, T6], T7);
-        $name!([T1, T2, T3, T4, T5, T6, T7], T8);
-        $name!([T1, T2, T3, T4, T5, T6, T7, T8], T9);
-        $name!([T1, T2, T3, T4, T5, T6, T7, T8, T9], T10);
-        $name!([T1, T2, T3, T4, T5, T6, T7, T8, T9, T10], T11);
-        $name!([T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11], T12);
-        $name!([T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12], T13);
-        $name!([T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13], T14);
-        $name!([T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14], T15);
-        $name!([T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15], T16);
+        $name!([], (T1, T1E));
+        $name!([(T1, T1E)], (T2, T2E));
+        $name!([(T1, T1E), (T2, T2E)], (T3, T3E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E)], (T4, T4E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E), (T4, T4E)], (T5, T5E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E), (T4, T4E), (T5, T5E)], (T6, T6E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E), (T4, T4E), (T5, T5E), (T6, T6E)], (T7, T7E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E), (T4, T4E), (T5, T5E), (T6, T6E), (T7, T7E)], (T8, T8E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E), (T4, T4E), (T5, T5E), (T6, T6E), (T7, T7E), (T8, T8E)], (T9, T9E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E), (T4, T4E), (T5, T5E), (T6, T6E), (T7, T7E), (T8, T8E), (T9, T9E)], (T10, T10E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E), (T4, T4E), (T5, T5E), (T6, T6E), (T7, T7E), (T8, T8E), (T9, T9E), (T10, T10E)], (T11, T11E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E), (T4, T4E), (T5, T5E), (T6, T6E), (T7, T7E), (T8, T8E), (T9, T9E), (T10, T10E), (T11, T11E)], (T12, T12E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E), (T4, T4E), (T5, T5E), (T6, T6E), (T7, T7E), (T8, T8E), (T9, T9E), (T10, T10E), (T11, T11E), (T12, T12E)], (T13, T13E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E), (T4, T4E), (T5, T5E), (T6, T6E), (T7, T7E), (T8, T8E), (T9, T9E), (T10, T10E), (T11, T11E), (T12, T12E), (T13, T13E)], (T14, T14E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E), (T4, T4E), (T5, T5E), (T6, T6E), (T7, T7E), (T8, T8E), (T9, T9E), (T10, T10E), (T11, T11E), (T12, T12E), (T13, T13E), (T14, T14E)], (T15, T15E));
+        $name!([(T1, T1E), (T2, T2E), (T3, T3E), (T4, T4E), (T5, T5E), (T6, T6E), (T7, T7E), (T8, T8E), (T9, T9E), (T10, T10E), (T11, T11E), (T12, T12E), (T13, T13E), (T14, T14E), (T15, T15E)], (T16, T16E));
     };
 }
 
@@ -143,13 +184,13 @@ impl<S, FuncParams, H> Route<S> for HandlerFunctionHandlerAdapter<FuncParams, H>
 where
     H: HandlerFunction<S, FuncParams>,
 {
-    type Response<'this, 'req> = impl IntoResponse;
-    
-    async fn match_request<'req, Body: Read>(
-        &self,
-        req: Request<'req, Body>,
-        state: &S,
-    ) -> crate::route::Decision<'req, Self::Response<'_, 'req>, Body> {
+    type Response = H::Response;
+
+    async fn match_request<'a, Body: Read>(
+        &'a self,
+        req: Request<'a, Body>,
+        state: &'a S,
+    ) -> crate::route::Decision<'a, Self::Response, Body> {
         crate::route::Decision::Match(self.handler.call(req, state).await)
     }
 }

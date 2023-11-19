@@ -137,7 +137,7 @@ impl<'a, R: Read> Read for Body<'a, R> {
 
         let read = if !self.buf.is_empty() {
             let mut reader = &self.buf[..self.content_length.min(self.buf.len())];
-            reader.read(buf).await.expect("TODO")
+            reader.read(buf).await.unwrap_or_else(|x| match x {})
         } else {
             self.reader.read(buf).await?
         };

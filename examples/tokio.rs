@@ -6,7 +6,9 @@ use tokio::task::LocalSet;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let router = low_profile::Router::new().get("/", || async { "Hello World" });
+    let router = low_profile::Router::new()
+        .get("/", || async { "Hello World" })
+        .post("/", |body: heapless::String<3>| async move { body });
     let router = Rc::new(router);
 
     let socket = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 8000)).await?;
@@ -20,10 +22,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let router = Rc::clone(&router);
             tokio::task::spawn_local(async move {
                 let (reader, writer) = stream.split();
+                let (reader, writer) = (FromTokio::new(reader), FromTokio::new(writer));
 
-                router
-                    .serve(FromTokio::new(reader), FromTokio::new(writer))
-                    .await;
+                if let Err(err) = router.serve(reader, writer).await {
+                    println!("Could not serve request: {err:?}");
+                };
             });
         }
     };
