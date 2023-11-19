@@ -1,6 +1,6 @@
 use core::{fmt, mem::MaybeUninit, str::Utf8Error};
 
-use crate::{Io, Method, Read};
+use crate::{ErrorType, Method, Read};
 
 pub struct Request<'a, R> {
     pub(crate) parts: Parts<'a>,
@@ -125,7 +125,7 @@ impl<'a, R: Read> Body<'a, R> {
     }
 }
 
-impl<'a, R: Read> Io for Body<'a, R> {
+impl<'a, R: ErrorType> ErrorType for Body<'a, R> {
     type Error = R::Error;
 }
 

@@ -9,12 +9,10 @@ repository = "https://github.com/Dav1dde/low-profile"
 edition = "2021"
 
 [dependencies]
-embedded-io = { version = "0.4", features = ["async"] }
-httparse = { version = "1.8", default-features = false }
-heapless = { version = "0.7", default-features = false }
-# TODO: would be nice to get rid of the future dependency
-futures-util = { version = "0.3", default-features = false }
+embedded-io-async = "0.6"
+httparse = { version = "1.8.0", default-features = false }
+heapless = { version = "0.8", default-features = false }
 
 [dev-dependencies]
 tokio = { version = "1.31", features = ["rt", "io-util", "net", "time", "macros"] }
-embedded-io = { version = "0.4", features = ["tokio"] }
+embedded-io-adapters = { version = "0.6", features = ["tokio-1"] }

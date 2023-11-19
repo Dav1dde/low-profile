@@ -1,8 +1,8 @@
 use core::fmt::Debug;
 
-use embedded_io::{Error, ErrorKind};
+use embedded_io_async::{Error, ErrorKind};
 
-use crate::{IntoResponse, Io, Read, Response};
+use crate::{ErrorType, IntoResponse, Read, Response};
 
 pub enum Either<L, R> {
     Left(L),
@@ -27,7 +27,7 @@ impl<L: Error, R: Error> Error for Either<L, R> {
     }
 }
 
-impl<L: Io, R: Io> Io for Either<L, R> {
+impl<L: ErrorType, R: ErrorType> ErrorType for Either<L, R> {
     type Error = Either<L::Error, R::Error>;
 }
 

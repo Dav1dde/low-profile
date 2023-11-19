@@ -5,7 +5,8 @@
     type_alias_impl_trait,
     return_position_impl_trait_in_trait,
     maybe_uninit_slice,
-    impl_trait_projections
+    impl_trait_projections,
+    const_waker
 )]
 
 pub(crate) mod either;
@@ -23,7 +24,7 @@ mod service;
 mod utils;
 
 pub use extract::{FromRef, FromRequest, FromRequestParts};
-pub use io::{Io, Read, Write};
+pub use io::{ErrorType, Read, Write};
 pub use method::Method;
 pub use request::{Headers, Parts, Request};
 pub use response::{IntoResponse, Response};

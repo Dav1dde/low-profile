@@ -1,9 +1,6 @@
 use core::convert::Infallible;
 
-pub use embedded_io::{
-    asynch::{Read, Write},
-    Io,
-};
+pub use embedded_io_async::{ErrorType, Read, Write};
 
 pub struct Cursor<T> {
     inner: T,
@@ -23,7 +20,7 @@ impl<T: AsRef<[u8]>> Cursor<T> {
     }
 }
 
-impl<T> Io for Cursor<T>
+impl<T> ErrorType for Cursor<T>
 where
     T: AsRef<[u8]>,
 {

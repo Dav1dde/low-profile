@@ -49,6 +49,6 @@ impl<'a, const SIZE: usize, S> FromRequest<'a, S> for heapless::String<SIZE> {
         _state: &S,
     ) -> Result<Self, Self::Rejection> {
         let data = heapless::Vec::<u8, SIZE>::from_request(req, &()).await?;
-        Ok(core::str::from_utf8(&data).expect("TODO").into())
+        Ok(Self::from_utf8(data).expect("TODO"))
     }
 }

@@ -1,6 +1,6 @@
 use std::{net::Ipv4Addr, rc::Rc};
 
-use embedded_io::adapters::FromTokio;
+use embedded_io_adapters::tokio_1::FromTokio;
 use low_profile::Service;
 use tokio::task::LocalSet;
 
@@ -11,6 +11,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let socket = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 8000)).await?;
 
+    println!("Server listening on localhost:8000");
     let main = async move {
         loop {
             let (mut stream, addr) = socket.accept().await?;

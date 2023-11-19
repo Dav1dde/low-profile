@@ -4,7 +4,7 @@ Low Profile
 Low Profile is a no-std compatible HTTP server built for embedded,
 originally started to power my esp32-s3.
 
-Low Profile currently requires nightly 1.75+.
+Low Profile currently requires nightly 1.74+.
 
 The framework is heavily inspired by Axum:
 
