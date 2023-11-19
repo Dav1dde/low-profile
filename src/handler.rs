@@ -47,21 +47,15 @@ macro_rules! impl_handler_func_inner_extract {
             Err(err) => return impl_handler_func_inner_extract!(@builderr-right, ($v), err),
         };
     };
-    ($parts:ident, $state:ident, $v:ident, $($x:tt)*) => {
+    ($parts:ident, $state:ident, $v:ident$(, $($x:tt)*)?) => {
         let $v = match $v::from_request_parts(&mut $parts, $state).await {
             Ok(o) => o,
-            Err(err) => return impl_handler_func_inner_extract!(@builderr-right, ($v, $($x)*), err),
+            Err(err) => return impl_handler_func_inner_extract!(@builderr-right, ($v$(, $($x)*)?), err),
         };
 
-        impl_handler_func_inner_extract!(@cont, $parts, $state, $($x)*)
+        $(impl_handler_func_inner_extract!(@cont, $parts, $state $(, $x)*))?
     };
 
-    (@cont, $parts:ident, $state:ident, $v:ident) => {
-        let $v = match $v::from_request_parts(&mut $parts, $state).await {
-            Ok(o) => o,
-            Err(err) => return impl_handler_func_inner_extract!(@builderr, ($v), err),
-        };
-    };
     (@cont, $parts:ident, $state:ident, $v:ident, $($x:tt)*) => {
         let $v = match $v::from_request_parts(&mut $parts, $state).await {
             Ok(o) => o,
