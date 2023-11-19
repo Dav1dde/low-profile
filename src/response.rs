@@ -1,6 +1,7 @@
 use crate::{http::StatusCode, io::Cursor, Read};
 
 pub struct Response<Body> {
+    // TODO: headers
     status_code: StatusCode,
     body: Body,
 }
