@@ -5,7 +5,8 @@ use crate::{
     parse::PathAndQuery,
     request::{record_header_indices, Body, HeaderIndices, Headers, Parts},
     route::{self, Route},
-    utils, IntoResponse, Method, Read, Request, Service, Write,
+    service::ServiceError,
+    utils, ErrorType, IntoResponse, Method, Read, Request, Service, Write,
 };
 
 mod private {
@@ -120,8 +121,14 @@ where
     }
 }
 
-impl<R: Route<S>, S, HasRoute> Service for Router<S, R, S, HasRoute> {
-    async fn serve<Re: Read, Wr: Write<Error = Re::Error>>(&self, mut reader: Re, mut writer: Wr) {
+impl<R: Route<S> + 'static, S, HasRoute> Service for Router<S, R, S, HasRoute> {
+    type Error = <<R::Response<'static, 'static> as IntoResponse>::Body as ErrorType>::Error;
+
+    async fn serve<Re: Read, Wr: Write<Error = Re::Error>>(
+        &self,
+        mut reader: Re,
+        mut writer: Wr,
+    ) -> Result<(), ServiceError<Re::Error, Self::Error>> {
         // TODO: buf size, optinally make the buffer an arg
         let mut buf = [0u8; 2048];
 
@@ -135,10 +142,10 @@ impl<R: Route<S>, S, HasRoute> Service for Router<S, R, S, HasRoute> {
         let mut pos = 0;
         let (method, path, headers, body_start) = loop {
             // TODO check if buffer is full first
-            let read = reader.read(&mut buf[pos..]).await.unwrap();
+            let read = reader.read(&mut buf[pos..]).await.map_err(ServiceError::Io)?;
             if read == 0 {
                 // TODO
-                return;
+                return Ok(());
             }
             pos += read;
 
@@ -192,16 +199,18 @@ impl<R: Route<S>, S, HasRoute> Service for Router<S, R, S, HasRoute> {
         write!(writer, "HTTP/1.1 {}\r\n", response.status_code())
             .await
             .unwrap();
-        writer.write_all(b"\r\n").await.unwrap();
+        writer.write_all(b"\r\n").await.map_err(ServiceError::Io)?;
 
         let mut body = response.into_body();
         loop {
             let mut buf = [0; 1024];
-            let len = body.read(&mut buf).await.unwrap();
+            let len = body.read(&mut buf).await.map_err(ServiceError::Lol)?;
             if len == 0 {
                 break;
             }
-            writer.write_all(&buf[..len]).await.unwrap();
+            writer.write_all(&buf[..len]).await.map_err(ServiceError::Io)?;
         }
+
+        Ok(())
     }
 }

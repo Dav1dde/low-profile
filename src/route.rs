@@ -55,11 +55,13 @@ impl<'a, T, R> Decision<'a, T, R> {
 }
 
 pub trait Route<S> {
-    fn match_request<'a, Body: Read>(
+    type Response<'this, 'req>: IntoResponse where Self: 'this;
+
+    fn match_request<'req, Body: Read>(
         &self,
-        req: Request<'a, Body>,
+        req: Request<'req, Body>,
         state: &S,
-    ) -> impl Future<Output = Decision<'a, impl IntoResponse, Body>>;
+    ) -> impl Future<Output = Decision<'req, Self::Response<'_, 'req>, Body>>;
 }
 
 // impl<S, T: Handler<S>> Route<S> for T {
@@ -75,11 +77,13 @@ pub trait Route<S> {
 pub struct NotFound;
 
 impl<S> Route<S> for NotFound {
-    async fn match_request<'a, Body: Read>(
+    type Response<'this, 'req> = impl IntoResponse;
+
+    async fn match_request<'req, Body: Read>(
         &self,
-        _req: Request<'a, Body>,
+        _req: Request<'req, Body>,
         _state: &S,
-    ) -> Decision<'a, impl IntoResponse, Body> {
+    ) -> Decision<'req, Self::Response<'_, 'req>, Body> {
         Decision::Match((404, "Not Found"))
     }
 }
@@ -90,11 +94,13 @@ pub struct Path<R> {
 }
 
 impl<S, R: Route<S>> Route<S> for Path<R> {
-    async fn match_request<'a, Body: Read>(
+    type Response<'this, 'req> = impl IntoResponse;
+
+    async fn match_request<'req, Body: Read>(
         &self,
-        req: Request<'a, Body>,
+        req: Request<'req, Body>,
         state: &S,
-    ) -> Decision<'a, impl IntoResponse, Body> {
+    ) -> Decision<'req, Self::Response<'_, 'req>, Body> {
         if self.path == req.path() {
             self.route.match_request(req, state).await
         } else {
@@ -109,11 +115,13 @@ pub struct Method<R> {
 }
 
 impl<S, R: Route<S>> Route<S> for Method<R> {
-    async fn match_request<'a, Body: Read>(
+    type Response<'this, 'req> = R::Response<'this, 'req> where R: 'this;
+
+    async fn match_request<'req, Body: Read>(
         &self,
-        req: Request<'a, Body>,
+        req: Request<'req, Body>,
         state: &S,
-    ) -> Decision<'a, impl IntoResponse, Body> {
+    ) -> Decision<'req, Self::Response<'_, 'req>, Body> {
         if self.method == req.method() {
             self.route.match_request(req, state).await
         } else {
@@ -128,11 +136,13 @@ pub struct Fallback<T, S> {
 }
 
 impl<S, R1: Route<S>, R2: Route<S>> Route<S> for Fallback<R1, R2> {
-    async fn match_request<'a, Body: Read>(
+    type Response<'this, 'req> = impl IntoResponse;
+
+    async fn match_request<'req, Body: Read>(
         &self,
-        req: Request<'a, Body>,
+        req: Request<'req, Body>,
         state: &S,
-    ) -> Decision<'a, impl IntoResponse, Body> {
+    ) -> Decision<'req, Self::Response<'_, 'req>, Body> {
         match self.route.match_request(req, state).await {
             Decision::Match(t) => return Decision::Match(t.into_response().map_body(Either::Left)),
             Decision::NoMatch(req) => self

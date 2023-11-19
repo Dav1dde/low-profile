@@ -143,11 +143,13 @@ impl<S, FuncParams, H> Route<S> for HandlerFunctionHandlerAdapter<FuncParams, H>
 where
     H: HandlerFunction<S, FuncParams>,
 {
-    async fn match_request<'a, Body: Read>(
+    type Response<'this, 'req> = impl IntoResponse;
+    
+    async fn match_request<'req, Body: Read>(
         &self,
-        req: Request<'a, Body>,
+        req: Request<'req, Body>,
         state: &S,
-    ) -> crate::route::Decision<'a, impl IntoResponse, Body> {
+    ) -> crate::route::Decision<'req, Self::Response<'_, 'req>, Body> {
         crate::route::Decision::Match(self.handler.call(req, state).await)
     }
 }
