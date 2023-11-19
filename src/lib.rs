@@ -6,13 +6,15 @@
     return_position_impl_trait_in_trait,
     maybe_uninit_slice,
     impl_trait_projections,
-    const_waker
+    const_waker,
+    impl_trait_in_assoc_type
 )]
 
 pub(crate) mod either;
 mod error;
 pub mod extract;
 mod handler;
+pub mod http;
 mod io;
 mod method;
 mod parse;

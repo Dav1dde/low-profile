@@ -1,12 +1,12 @@
-use crate::{io::Cursor, Read};
+use crate::{http::StatusCode, io::Cursor, Read};
 
 pub struct Response<Body> {
-    status_code: u16,
+    status_code: StatusCode,
     body: Body,
 }
 
 impl<Body> Response<Body> {
-    pub fn status_code(&self) -> u16 {
+    pub fn status_code(&self) -> StatusCode {
         self.status_code
     }
 
@@ -41,7 +41,10 @@ impl IntoResponse for core::convert::Infallible {
     }
 }
 
-impl<Body: Read> IntoResponse for Response<Body> {
+impl<Body: Read> IntoResponse for Response<Body>
+where
+    Body: 'static,
+{
     type Body = Body;
 
     fn into_response(self) -> Response<Self::Body> {
@@ -54,13 +57,13 @@ impl IntoResponse for &'static str {
 
     fn into_response(self) -> Response<Self::Body> {
         Response {
-            status_code: 200,
+            status_code: StatusCode::OK,
             body: self.as_bytes(),
         }
     }
 }
 
-impl<T: IntoResponse> IntoResponse for (u16, T) {
+impl<T: IntoResponse> IntoResponse for (StatusCode, T) {
     type Body = T::Body;
 
     fn into_response(self) -> Response<Self::Body> {
@@ -74,7 +77,7 @@ impl IntoResponse for () {
     type Body = &'static [u8];
 
     fn into_response(self) -> Response<Self::Body> {
-        (200, "").into_response()
+        (StatusCode::OK, "").into_response()
     }
 }
 
@@ -83,7 +86,7 @@ impl<const SIZE: usize> IntoResponse for heapless::Vec<u8, SIZE> {
 
     fn into_response(self) -> Response<Self::Body> {
         Response {
-            status_code: 200,
+            status_code: StatusCode::OK,
             body: Cursor::new(self),
         }
     }
@@ -94,7 +97,7 @@ impl<const SIZE: usize> IntoResponse for heapless::String<SIZE> {
 
     fn into_response(self) -> Response<Self::Body> {
         Response {
-            status_code: 200,
+            status_code: StatusCode::OK,
             body: Cursor::new(self),
         }
     }

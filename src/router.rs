@@ -1,11 +1,13 @@
 use core::{marker::PhantomData, mem::MaybeUninit};
 
 use crate::{
+    error::ProtocolError,
     handler,
     parse::PathAndQuery,
     request::{record_header_indices, Body, HeaderIndices, Headers, Parts},
     route::{self, Route},
-    utils, IntoResponse, Method, Read, Request, Service, Write,
+    service::ServiceError,
+    utils, ErrorType, IntoResponse, Method, Read, Request, Service, Write,
 };
 
 mod private {
@@ -120,8 +122,14 @@ where
     }
 }
 
-impl<R: Route<S>, S, HasRoute> Service for Router<S, R, S, HasRoute> {
-    async fn serve<Re: Read, Wr: Write<Error = Re::Error>>(&self, mut reader: Re, mut writer: Wr) {
+impl<R: Route<S> + 'static, S, HasRoute> Service for Router<S, R, S, HasRoute> {
+    type BodyError = <<R::Response as IntoResponse>::Body as ErrorType>::Error;
+
+    async fn serve<Re: Read, Wr: Write<Error = Re::Error>>(
+        &self,
+        mut reader: Re,
+        mut writer: Wr,
+    ) -> Result<(), ServiceError<Re::Error, Self::BodyError>> {
         // TODO: buf size, optinally make the buffer an arg
         let mut buf = [0u8; 2048];
 
@@ -135,10 +143,13 @@ impl<R: Route<S>, S, HasRoute> Service for Router<S, R, S, HasRoute> {
         let mut pos = 0;
         let (method, path, headers, body_start) = loop {
             // TODO check if buffer is full first
-            let read = reader.read(&mut buf[pos..]).await.unwrap();
+            let read = reader
+                .read(&mut buf[pos..])
+                .await
+                .map_err(ServiceError::Io)?;
             if read == 0 {
                 // TODO
-                return;
+                return Ok(());
             }
             pos += read;
 
@@ -154,18 +165,23 @@ impl<R: Route<S>, S, HasRoute> Service for Router<S, R, S, HasRoute> {
                         MaybeUninit::slice_assume_init_ref(&headers_indices[..req.headers.len()])
                     };
 
+                    // TODO: I think these unwraps cant happen, double check
                     break (req.method.unwrap(), req.path.unwrap(), headers, len);
                 }
                 Ok(httparse::Status::Partial) => {
                     continue;
                 }
-                Err(err) => panic!("parse error: {err:?}"),
+                Err(err) => return Err(ServiceError::ProtocolError(ProtocolError::Parser(err))),
             }
         };
 
-        let paq = PathAndQuery::parse(path).unwrap();
+        let paq = PathAndQuery::parse(path)
+            .map_err(ProtocolError::InvalidUrl)
+            .map_err(ServiceError::ProtocolError)?;
         let parts = Parts {
-            method: Method::new(method).unwrap(),
+            method: Method::new(method)
+                .map_err(ProtocolError::InvalidMethod)
+                .map_err(ServiceError::ProtocolError)?,
             path: paq.path(),
             query: paq.query(),
             headers: Headers { headers, buf: &buf },
@@ -180,28 +196,36 @@ impl<R: Route<S>, S, HasRoute> Service for Router<S, R, S, HasRoute> {
         let body = Body::new(content_length, &buf[body_start..pos], reader);
         let request = Request::from_parts(parts, body);
 
-        // It is safe to unwrap here, we always have a `NotFound` fallback handler.
         let response = self
             .route
             .match_request(request, &self.state)
             .await
+            // It is safe to unwrap here, we always have a `NotFound` fallback handler.
             .unwrap()
             .into_response();
 
-        use utils::WriteExt;
+        use utils::{WriteExt, WriteFmtError};
         write!(writer, "HTTP/1.1 {}\r\n", response.status_code())
             .await
-            .unwrap();
-        writer.write_all(b"\r\n").await.unwrap();
+            .map_err(|err| match err {
+                WriteFmtError::FmtError => unreachable!("internal format buffer too small"),
+                WriteFmtError::Other(err) => ServiceError::Io(err),
+            })?;
+        writer.write_all(b"\r\n").await.map_err(ServiceError::Io)?;
 
         let mut body = response.into_body();
         loop {
             let mut buf = [0; 1024];
-            let len = body.read(&mut buf).await.unwrap();
+            let len = body.read(&mut buf).await.map_err(ServiceError::Body)?;
             if len == 0 {
                 break;
             }
-            writer.write_all(&buf[..len]).await.unwrap();
+            writer
+                .write_all(&buf[..len])
+                .await
+                .map_err(ServiceError::Io)?;
         }
+
+        Ok(())
     }
 }
