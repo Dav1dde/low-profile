@@ -8,11 +8,21 @@ categories = ["no-std", "embedded", "asynchronous", "network-programming", "web-
 repository = "https://github.com/Dav1dde/low-profile"
 edition = "2021"
 
+[features]
+default = ["heapless"]
+heapless = []
+json = ["dep:serde", "dep:serde-json-core"]
+
 [dependencies]
 embedded-io-async = "0.6"
 httparse = { version = "1.8.0", default-features = false }
 heapless = { version = "0.8", default-features = false }
 
+serde = { version = "1", default-features = false, optional = true }
+serde-json-core = { version = "0.5", default-features = false, optional = true }
+
 [dev-dependencies]
 tokio = { version = "1.31", features = ["rt", "io-util", "net", "time", "macros"] }
 embedded-io-adapters = { version = "0.6", features = ["tokio-1"] }
+serde = { version = "1", default-features = false, features = ["derive"] }
+heapless = { version = "0.8", default-features = false, features = ["serde"] }
