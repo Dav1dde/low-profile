@@ -1,7 +1,7 @@
 use std::{net::Ipv4Addr, rc::Rc};
 
 use embedded_io_adapters::tokio_1::FromTokio;
-use low_profile::{Json, Service};
+use low_profile::{extract::Path, Json, Segment, Service};
 use tokio::task::LocalSet;
 
 #[derive(serde::Deserialize)]
@@ -17,7 +17,11 @@ struct Response {
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let router = low_profile::Router::new()
-        .get("/", || async { "Hello World" })
+        .get("/", || async { "hello world" })
+        .get(
+            ("bar", heapless::String::<3>::segment()),
+            |Path((_, p))| async move { p },
+        )
         .post("/", |body: heapless::String<3>| async move { body })
         .post("/json", |Json(body): Json<Body, 256>| async move {
             Json::new::<256>(Response {

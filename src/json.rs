@@ -17,14 +17,14 @@ impl<T> Json<T, 0> {
     }
 }
 
-impl<'a, S, T, const N: usize> FromRequest<'a, S> for Json<T, N>
+impl<'a, S, P, T, const N: usize> FromRequest<'a, S, P> for Json<T, N>
 where
     T: DeserializeOwned,
 {
     type Rejection = JsonRejection;
 
     async fn from_request<R: Read>(
-        req: Request<'a, R>,
+        req: Request<'a, R, P>,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
         // TODO: check headers

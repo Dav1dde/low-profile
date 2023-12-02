@@ -7,7 +7,7 @@ mod request;
 mod request_parts;
 
 pub use rejections::*;
-pub use request_parts::{FromRef, State};
+pub use request_parts::*;
 
 mod private {
     #[derive(Debug, Clone, Copy)]
@@ -17,32 +17,32 @@ mod private {
     pub enum ViaRequest {}
 }
 
-pub trait FromRequestParts<'a, S>: Sized {
+pub trait FromRequestParts<'a, S, P>: Sized {
     type Rejection: IntoResponse;
 
     fn from_request_parts(
-        parts: &mut Parts<'a>,
+        parts: &mut Parts<'a, P>,
         state: &S,
     ) -> impl Future<Output = Result<Self, Self::Rejection>>;
 }
 
-pub trait FromRequest<'a, S, M = private::ViaRequest>: Sized {
+pub trait FromRequest<'a, S, P, M = private::ViaRequest>: Sized {
     type Rejection: IntoResponse;
 
     fn from_request<R: Read>(
-        req: Request<'a, R>,
+        req: Request<'a, R, P>,
         state: &S,
     ) -> impl Future<Output = Result<Self, Self::Rejection>>;
 }
 
-impl<'a, S, T> FromRequest<'a, S, private::ViaParts> for T
+impl<'a, S, P, T> FromRequest<'a, S, P, private::ViaParts> for T
 where
-    T: FromRequestParts<'a, S>,
+    T: FromRequestParts<'a, S, P>,
 {
     type Rejection = T::Rejection;
 
     fn from_request<R: Read>(
-        req: Request<'a, R>,
+        req: Request<'a, R, P>,
         state: &S,
     ) -> impl Future<Output = Result<Self, Self::Rejection>> {
         let (mut parts, _) = req.into_parts();

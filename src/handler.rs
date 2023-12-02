@@ -4,27 +4,27 @@ use crate::{
     either::Either, route::Route, FromRequest, FromRequestParts, IntoResponse, Read, Request,
 };
 
-pub trait Handler<S> {
+pub trait Handler<S, P> {
     type Response: IntoResponse;
 
     fn call<Body: Read>(
         &self,
-        req: Request<'_, Body>,
+        req: Request<'_, Body, P>,
         state: &S,
     ) -> impl Future<Output = Self::Response>;
 }
 
-pub trait HandlerFunction<S, Params> {
+pub trait HandlerFunction<S, P, Params> {
     type Response: IntoResponse;
 
     fn call<Body: Read>(
         &self,
-        req: Request<'_, Body>,
+        req: Request<'_, Body, P>,
         state: &S,
     ) -> impl Future<Output = Self::Response>;
 }
 
-impl<S, Fut, F, Ret> HandlerFunction<S, ()> for F
+impl<S, P, Fut, F, Ret> HandlerFunction<S, P, ()> for F
 where
     F: Fn() -> Fut,
     Fut: Future<Output = Ret>,
@@ -32,7 +32,7 @@ where
 {
     type Response = Ret;
 
-    async fn call<Body: Read>(&self, _req: Request<'_, Body>, _state: &S) -> Self::Response {
+    async fn call<Body: Read>(&self, _req: Request<'_, Body, P>, _state: &S) -> Self::Response {
         self().await
     }
 }
@@ -116,25 +116,26 @@ macro_rules! impl_handler_func {
         #[allow(non_snake_case, unused_mut)]
         impl<
             S,
+            P,
             Fut,
             F,
             Ret,
             M,
             $($ty, $ty_err,)*
             $last, $last_err,
-        > HandlerFunction<S, (M, $($ty,)* $last)> for F
+        > HandlerFunction<S, P, (M, $($ty,)* $last)> for F
         where
             F: Fn($($ty,)* $last,) -> Fut,
             Fut: Future<Output = Ret>,
             Ret: IntoResponse,
-            $($ty: for<'a> FromRequestParts<'a, S, Rejection = $ty_err>, $ty_err: IntoResponse,)*
-            $last: for<'a> FromRequest<'a, S, M, Rejection = $last_err>,
+            $($ty: for<'a> FromRequestParts<'a, S, P, Rejection = $ty_err>, $ty_err: IntoResponse,)*
+            $last: for<'a> FromRequest<'a, S, P, M, Rejection = $last_err>,
             $last_err: IntoResponse,
         {
             type Response = impl_handler_func_inner_extract!(@buildty, Ret, ($($ty_err,)*), $last_err);
 
             #[allow(unused_variables)]
-            async fn call<Body: Read>(&self, req: Request<'_, Body>, state: &S) -> Self::Response {
+            async fn call<Body: Read>(&self, req: Request<'_, Body, P>, state: &S) -> Self::Response {
                 let (mut parts, body) = req.into_parts();
 
                 impl_handler_func_inner_extract!(parts, state, $($ty),*);
@@ -180,17 +181,17 @@ pub(crate) struct HandlerFunctionHandlerAdapter<FuncParams, Handler> {
     pub _params: PhantomData<FuncParams>,
 }
 
-impl<S, FuncParams, H> Route<S> for HandlerFunctionHandlerAdapter<FuncParams, H>
+impl<S, P, FuncParams, H> Route<S, P> for HandlerFunctionHandlerAdapter<FuncParams, H>
 where
-    H: HandlerFunction<S, FuncParams>,
+    H: HandlerFunction<S, P, FuncParams>,
 {
     type Response = H::Response;
 
     async fn match_request<'a, Body: Read>(
         &'a self,
-        req: Request<'a, Body>,
+        req: Request<'a, Body, P>,
         state: &'a S,
-    ) -> crate::route::Decision<'a, Self::Response, Body> {
+    ) -> crate::route::Decision<'a, Self::Response, Body, P> {
         crate::route::Decision::Match(self.handler.call(req, state).await)
     }
 }

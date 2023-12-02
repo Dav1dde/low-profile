@@ -2,17 +2,17 @@ use core::{fmt, mem::MaybeUninit, str::Utf8Error};
 
 use crate::{ErrorType, Method, Read};
 
-pub struct Request<'a, R> {
-    pub(crate) parts: Parts<'a>,
+pub struct Request<'a, R, P> {
+    pub(crate) parts: Parts<'a, P>,
     pub(crate) body: Body<'a, R>,
 }
 
-impl<'a, R> Request<'a, R> {
-    pub fn from_parts(parts: Parts<'a>, body: Body<'a, R>) -> Self {
+impl<'a, R, P> Request<'a, R, P> {
+    pub fn from_parts(parts: Parts<'a, P>, body: Body<'a, R>) -> Self {
         Self { parts, body }
     }
 
-    pub fn into_parts(self) -> (Parts<'a>, Body<'a, R>) {
+    pub fn into_parts(self) -> (Parts<'a, P>, Body<'a, R>) {
         (self.parts, self.body)
     }
 
@@ -31,9 +31,16 @@ impl<'a, R> Request<'a, R> {
     pub fn body_mut(&mut self) -> &mut Body<'a, R> {
         &mut self.body
     }
+
+    pub(crate) fn with_extracted_path<P2>(self, extracted_path: P2) -> Request<'a, R, P2> {
+        Request {
+            parts: self.parts.with_extracted_path(extracted_path),
+            body: self.body,
+        }
+    }
 }
 
-impl<'a, R> fmt::Debug for Request<'a, R> {
+impl<'a, R, P> fmt::Debug for Request<'a, R, P> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Request")
             .field("method", &self.parts.method)
@@ -43,11 +50,24 @@ impl<'a, R> fmt::Debug for Request<'a, R> {
     }
 }
 
-pub struct Parts<'a> {
+pub struct Parts<'a, P> {
     pub method: Method<'a>,
     pub path: &'a str,
     pub query: Option<&'a str>,
     pub headers: Headers<'a>,
+    pub(crate) extracted_path: P,
+}
+
+impl<'a, P> Parts<'a, P> {
+    fn with_extracted_path<P2>(self, extracted_path: P2) -> Parts<'a, P2> {
+        Parts {
+            method: self.method,
+            path: self.path,
+            query: self.query,
+            headers: self.headers,
+            extracted_path,
+        }
+    }
 }
 
 #[derive(Copy, Clone)]

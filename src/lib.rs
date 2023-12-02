@@ -21,6 +21,7 @@ mod json;
 pub(crate) mod macros;
 mod method;
 mod parse;
+mod path;
 pub mod request;
 pub mod response;
 mod route;
@@ -33,6 +34,7 @@ pub use io::{ErrorType, Read, Write};
 #[cfg(feature = "json")]
 pub use json::Json;
 pub use method::Method;
+pub use path::*;
 pub use request::{Headers, Parts, Request};
 pub use response::{IntoResponse, Response};
 pub use route::{connect, delete, get, head, options, patch, post, put, trace};

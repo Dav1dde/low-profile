@@ -1,16 +1,18 @@
 use core::future::Future;
 
-use crate::{either::Either, handler, http::StatusCode, IntoResponse, Read, Request, Response};
+use crate::{
+    either::Either, handler, http::StatusCode, IntoResponse, PathSegments, Read, Request, Response,
+};
 
 macro_rules! impl_handler_func {
     ($name:ident, $method:ident) => {
-        pub fn $name<H, S, FuncParams>(handler: H) -> impl Route<S>
+        pub fn $name<H, S, P, FuncParams>(handler: H) -> impl Route<S, P>
         where
-            H: handler::HandlerFunction<S, FuncParams>,
+            H: handler::HandlerFunction<S, P, FuncParams>,
         {
             Method {
-                method: crate::Method::$method,
-                route: crate::handler::HandlerFunctionHandlerAdapter {
+                method: $crate::Method::$method,
+                route: $crate::handler::HandlerFunctionHandlerAdapter {
                     handler,
                     _params: Default::default(),
                 },
@@ -29,13 +31,20 @@ impl_handler_func!(connect, CONNECT);
 impl_handler_func!(patch, PATCH);
 impl_handler_func!(trace, TRACE);
 
-pub enum Decision<'a, T, R> {
+pub enum Decision<'a, T, R, P> {
     Match(T),
-    NoMatch(Request<'a, R>),
+    NoMatch(Request<'a, R, P>),
 }
 
-impl<'a, T, R> Decision<'a, T, R> {
-    fn map<F, U>(self, f: F) -> Decision<'a, U, R>
+impl<'a, T, R, P> Decision<'a, T, R, P> {
+    fn erase(self) -> Decision<'a, T, R, ()> {
+        match self {
+            Decision::Match(t) => Decision::Match(t),
+            Decision::NoMatch(req) => Decision::NoMatch(req.with_extracted_path(())),
+        }
+    }
+
+    fn map<F, U>(self, f: F) -> Decision<'a, U, R, P>
     where
         F: FnOnce(T) -> U,
     {
@@ -54,14 +63,14 @@ impl<'a, T, R> Decision<'a, T, R> {
     }
 }
 
-pub trait Route<S> {
+pub trait Route<S, P = ()> {
     type Response: IntoResponse;
 
     fn match_request<'a, Body: Read>(
         &'a self,
-        req: Request<'a, Body>,
+        req: Request<'a, Body, P>,
         state: &'a S,
-    ) -> impl Future<Output = Decision<'a, Self::Response, Body>>;
+    ) -> impl Future<Output = Decision<'a, Self::Response, Body, P>>;
 }
 
 // impl<S, T: Handler<S>> Route<S> for T {
@@ -76,33 +85,36 @@ pub trait Route<S> {
 
 pub struct NotFound;
 
-impl<S> Route<S> for NotFound {
+impl<S, P> Route<S, P> for NotFound {
     type Response = Response<&'static [u8]>;
 
     async fn match_request<'a, Body: Read>(
         &'a self,
-        _req: Request<'a, Body>,
+        _req: Request<'a, Body, P>,
         _state: &'a S,
-    ) -> Decision<'a, Self::Response, Body> {
+    ) -> Decision<'a, Self::Response, Body, P> {
         Decision::Match((StatusCode::NOT_FOUND, "Not Found").into_response())
     }
 }
 
-pub struct Path<R> {
-    pub(crate) path: &'static str,
+pub struct Path<P, R> {
+    pub(crate) path: P,
     pub(crate) route: R,
 }
 
-impl<S, R: Route<S>> Route<S> for Path<R> {
+impl<S, P: PathSegments, R: Route<S, P::Output>> Route<S, ()> for Path<P, R> {
     type Response = R::Response;
 
     async fn match_request<'a, Body: Read>(
         &'a self,
-        req: Request<'a, Body>,
+        req: Request<'a, Body, ()>,
         state: &'a S,
-    ) -> Decision<'a, Self::Response, Body> {
-        if self.path == req.path() {
-            self.route.match_request(req, state).await
+    ) -> Decision<'a, Self::Response, Body, ()> {
+        if let Some(path) = self.path.parse(req.path()) {
+            self.route
+                .match_request(req.with_extracted_path(path), state)
+                .await
+                .erase()
         } else {
             Decision::NoMatch(req)
         }
@@ -114,14 +126,14 @@ pub struct Method<R> {
     pub(crate) route: R,
 }
 
-impl<S, R: Route<S>> Route<S> for Method<R> {
+impl<S, P, R: Route<S, P>> Route<S, P> for Method<R> {
     type Response = R::Response;
 
     async fn match_request<'a, Body: Read>(
         &'a self,
-        req: Request<'a, Body>,
+        req: Request<'a, Body, P>,
         state: &'a S,
-    ) -> Decision<'a, Self::Response, Body> {
+    ) -> Decision<'a, Self::Response, Body, P> {
         if self.method == req.method() {
             self.route.match_request(req, state).await
         } else {
@@ -135,14 +147,14 @@ pub struct Fallback<T, S> {
     pub(crate) fallback: S,
 }
 
-impl<S, R1: Route<S>, R2: Route<S>> Route<S> for Fallback<R1, R2> {
+impl<S, P, R1: Route<S, P>, R2: Route<S, P>> Route<S, P> for Fallback<R1, R2> {
     type Response = Either<R1::Response, R2::Response>;
 
     async fn match_request<'a, Body: Read>(
         &'a self,
-        req: Request<'a, Body>,
+        req: Request<'a, Body, P>,
         state: &'a S,
-    ) -> Decision<'a, Self::Response, Body> {
+    ) -> Decision<'a, Self::Response, Body, P> {
         match self.route.match_request(req, state).await {
             Decision::Match(t) => return Decision::Match(Either::Left(t)),
             Decision::NoMatch(req) => self

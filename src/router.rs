@@ -7,7 +7,7 @@ use crate::{
     request::{record_header_indices, Body, HeaderIndices, Headers, Parts},
     route::{self, Route},
     service::ServiceError,
-    utils, ErrorType, IntoResponse, Method, Read, Request, Service, Write,
+    utils, ErrorType, IntoResponse, Method, PathSegments, Read, Request, Service, Write,
 };
 
 mod private {
@@ -78,13 +78,14 @@ macro_rules! impl_method {
         where
             R: Route<RS>,
         {
-            pub fn $method<H, X>(
+            pub fn $method<P, H, X>(
                 self,
-                path: &'static str,
+                path: P,
                 handler: H,
             ) -> Router<RS, impl Route<RS>, S, private::HasAnyState>
             where
-                H: handler::HandlerFunction<RS, X>,
+                P: PathSegments,
+                H: handler::HandlerFunction<RS, P::Output, X>,
             {
                 self.route(path, route::$method(handler))
             }
@@ -106,9 +107,9 @@ impl<RS, R, S, HasRoute> Router<RS, R, S, HasRoute>
 where
     R: Route<RS>,
 {
-    pub fn route<T: Route<RS>>(
+    pub fn route<P: PathSegments, T: Route<RS, P::Output>>(
         self,
-        path: &'static str,
+        path: P,
         route: T,
     ) -> Router<RS, impl Route<RS>, S, private::HasAnyState> {
         Router {
@@ -185,6 +186,7 @@ impl<R: Route<S> + 'static, S, HasRoute> Service for Router<S, R, S, HasRoute> {
             path: paq.path(),
             query: paq.query(),
             headers: Headers { headers, buf: &buf },
+            extracted_path: (),
         };
 
         let content_length = parts

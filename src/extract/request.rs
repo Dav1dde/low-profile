@@ -3,11 +3,11 @@ use super::{
 };
 use crate::{Read, Request};
 
-impl<'a, const SIZE: usize, S> FromRequest<'a, S> for heapless::Vec<u8, SIZE> {
+impl<'a, const SIZE: usize, S, P> FromRequest<'a, S, P> for heapless::Vec<u8, SIZE> {
     type Rejection = VecRejection;
 
     async fn from_request<R: Read>(
-        mut req: Request<'a, R>,
+        mut req: Request<'a, R, P>,
         _state: &S,
     ) -> Result<Self, Self::Rejection> {
         let mut data = Self::default();
@@ -45,11 +45,11 @@ impl<'a, const SIZE: usize, S> FromRequest<'a, S> for heapless::Vec<u8, SIZE> {
     }
 }
 
-impl<'a, const SIZE: usize, S> FromRequest<'a, S> for heapless::String<SIZE> {
+impl<'a, const SIZE: usize, S, P> FromRequest<'a, S, P> for heapless::String<SIZE> {
     type Rejection = StringRejection;
 
     async fn from_request<R: Read>(
-        req: Request<'a, R>,
+        req: Request<'a, R, P>,
         _state: &S,
     ) -> Result<Self, Self::Rejection> {
         let data = heapless::Vec::<u8, SIZE>::from_request(req, &()).await?;
