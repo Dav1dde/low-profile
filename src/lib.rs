@@ -5,9 +5,7 @@
     type_alias_impl_trait,
     return_position_impl_trait_in_trait,
     maybe_uninit_slice,
-    impl_trait_projections,
-    const_waker,
-    impl_trait_in_assoc_type
+    const_waker
 )]
 
 #[cfg(feature = "alloc")]
