@@ -3,7 +3,6 @@ use core::future::Future;
 use crate::{request::Parts, IntoResponse, Read, Request};
 
 mod rejections;
-mod request;
 mod request_parts;
 
 pub use rejections::*;

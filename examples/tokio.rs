@@ -1,7 +1,7 @@
 use std::{net::Ipv4Addr, rc::Rc};
 
 use embedded_io_adapters::tokio_1::FromTokio;
-use low_profile::{extract::Path, Json, Segment, Service};
+use low_profile::{alloc, extract::Path, heapless::Json, Segment, Service};
 use tokio::task::LocalSet;
 
 #[derive(serde::Deserialize)]
@@ -18,16 +18,26 @@ struct Response {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let router = low_profile::Router::new()
         .get("/", || async { "hello world" })
+        .post("/", |body: heapless::String<3>| async move { body })
         .get(
-            ("bar", heapless::String::<3>::segment()),
+            ("param", heapless::String::<3>::segment()),
             |Path((_, p))| async move { p },
         )
-        .post("/", |body: heapless::String<3>| async move { body })
+        // JSON using `serde-json-core` allocation free.
         .post("/json", |Json(body): Json<Body, 256>| async move {
-            Json::new::<256>(Response {
+            Json::<_, 256>(Response {
                 response: body.content,
             })
-        });
+        })
+        // JSON using `serde_json` with `alloc`.
+        .post(
+            "/json/alloc",
+            |alloc::Json(body): alloc::Json<Body>| async move {
+                alloc::Json(Response {
+                    response: body.content,
+                })
+            },
+        );
     let router = Rc::new(router);
 
     let socket = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 8000)).await?;

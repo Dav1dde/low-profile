@@ -1,9 +1,9 @@
-use crate::{http::StatusCode, io::Cursor, Read};
+use crate::{http::StatusCode, Read};
 
 pub struct Response<Body> {
     // TODO: headers
-    status_code: StatusCode,
-    body: Body,
+    pub status_code: StatusCode,
+    pub body: Body,
 }
 
 impl<Body> Response<Body> {
@@ -79,27 +79,5 @@ impl IntoResponse for () {
 
     fn into_response(self) -> Response<Self::Body> {
         (StatusCode::OK, "").into_response()
-    }
-}
-
-impl<const SIZE: usize> IntoResponse for heapless::Vec<u8, SIZE> {
-    type Body = Cursor<Self>;
-
-    fn into_response(self) -> Response<Self::Body> {
-        Response {
-            status_code: StatusCode::OK,
-            body: Cursor::new(self),
-        }
-    }
-}
-
-impl<const SIZE: usize> IntoResponse for heapless::String<SIZE> {
-    type Body = Cursor<Self>;
-
-    fn into_response(self) -> Response<Self::Body> {
-        Response {
-            status_code: StatusCode::OK,
-            body: Cursor::new(self),
-        }
     }
 }

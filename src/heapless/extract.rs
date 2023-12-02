@@ -1,7 +1,9 @@
-use super::{
-    BodyTooLarge, FromRequest, InvalidUtf8, StringRejection, UnknownBodyError, VecRejection,
+use crate::{
+    extract::{
+        BodyTooLarge, FromRequest, InvalidUtf8, StringRejection, UnknownBodyError, VecRejection,
+    },
+    Read, Request,
 };
-use crate::{Read, Request};
 
 impl<'a, const SIZE: usize, S, P> FromRequest<'a, S, P> for heapless::Vec<u8, SIZE> {
     type Rejection = VecRejection;

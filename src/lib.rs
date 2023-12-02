@@ -10,14 +10,16 @@
     impl_trait_in_assoc_type
 )]
 
+#[cfg(feature = "alloc")]
+pub mod alloc;
 pub(crate) mod either;
 mod error;
 pub mod extract;
 mod handler;
+#[cfg(feature = "heapless")]
+pub mod heapless;
 pub mod http;
 mod io;
-#[cfg(feature = "json")]
-mod json;
 pub(crate) mod macros;
 mod method;
 mod parse;
@@ -31,8 +33,6 @@ mod utils;
 
 pub use extract::{FromRef, FromRequest, FromRequestParts};
 pub use io::{ErrorType, Read, Write};
-#[cfg(feature = "json")]
-pub use json::Json;
 pub use method::Method;
 pub use path::*;
 pub use request::{Headers, Parts, Request};

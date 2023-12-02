@@ -11,12 +11,6 @@ use crate::{
 
 pub struct Json<T, const N: usize = 1024>(pub T);
 
-impl<T> Json<T, 0> {
-    pub fn new<const N: usize>(value: T) -> Json<T, N> {
-        Json(value)
-    }
-}
-
 impl<'a, S, P, T, const N: usize> FromRequest<'a, S, P> for Json<T, N>
 where
     T: DeserializeOwned,
