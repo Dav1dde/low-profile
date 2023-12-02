@@ -21,7 +21,6 @@ pub mod heapless;
 pub mod http;
 mod io;
 pub(crate) mod macros;
-mod method;
 mod parse;
 mod path;
 pub mod request;
@@ -33,8 +32,7 @@ mod utils;
 
 pub use extract::{FromRef, FromRequest, FromRequestParts};
 pub use io::{ErrorType, Read, Write};
-pub use method::Method;
-pub use path::*;
+pub use path::{PathSegments, Segment};
 pub use request::{Headers, Parts, Request};
 pub use response::{IntoResponse, Response};
 pub use route::{connect, delete, get, head, options, patch, post, put, trace};

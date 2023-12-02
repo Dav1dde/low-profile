@@ -1,3 +1,4 @@
+mod method;
 mod status;
 
-pub use status::*;
+pub use self::{method::*, status::*};

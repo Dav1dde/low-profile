@@ -2,12 +2,12 @@ use core::{marker::PhantomData, mem::MaybeUninit};
 
 use crate::{
     error::ProtocolError,
-    handler,
+    handler, http,
     parse::PathAndQuery,
     request::{record_header_indices, Body, HeaderIndices, Headers, Parts},
     route::{self, Route},
     service::ServiceError,
-    utils, ErrorType, IntoResponse, Method, PathSegments, Read, Request, Service, Write,
+    utils, ErrorType, IntoResponse, PathSegments, Read, Request, Service, Write,
 };
 
 mod private {
@@ -180,7 +180,7 @@ impl<R: Route<S> + 'static, S, HasRoute> Service for Router<S, R, S, HasRoute> {
             .map_err(ProtocolError::InvalidUrl)
             .map_err(ServiceError::ProtocolError)?;
         let parts = Parts {
-            method: Method::new(method)
+            method: http::Method::new(method)
                 .map_err(ProtocolError::InvalidMethod)
                 .map_err(ServiceError::ProtocolError)?,
             path: paq.path(),

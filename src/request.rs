@@ -1,6 +1,6 @@
 use core::{fmt, mem::MaybeUninit, str::Utf8Error};
 
-use crate::{ErrorType, Method, Read};
+use crate::{http::Method, ErrorType, Read};
 
 pub struct Request<'a, R, P> {
     pub(crate) parts: Parts<'a, P>,

@@ -1,4 +1,4 @@
-use crate::method::InvalidMethod;
+use crate::http::InvalidMethod;
 
 #[derive(Debug)]
 pub enum InvalidUrl {

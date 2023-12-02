@@ -1,8 +1,6 @@
 use core::future::Future;
 
-use crate::{
-    either::Either, handler, http::StatusCode, IntoResponse, PathSegments, Read, Request, Response,
-};
+use crate::{either::Either, handler, http, IntoResponse, PathSegments, Read, Request, Response};
 
 macro_rules! impl_handler_func {
     ($name:ident, $method:ident) => {
@@ -11,7 +9,7 @@ macro_rules! impl_handler_func {
             H: handler::HandlerFunction<S, P, FuncParams>,
         {
             Method {
-                method: $crate::Method::$method,
+                method: $crate::http::Method::$method,
                 route: $crate::handler::HandlerFunctionHandlerAdapter {
                     handler,
                     _params: Default::default(),
@@ -93,7 +91,7 @@ impl<S, P> Route<S, P> for NotFound {
         _req: Request<'a, Body, P>,
         _state: &'a S,
     ) -> Decision<'a, Self::Response, Body, P> {
-        Decision::Match((StatusCode::NOT_FOUND, "Not Found").into_response())
+        Decision::Match((http::StatusCode::NOT_FOUND, "Not Found").into_response())
     }
 }
 
@@ -122,7 +120,7 @@ impl<S, P: PathSegments, R: Route<S, P::Output>> Route<S, ()> for Path<P, R> {
 }
 
 pub struct Method<R> {
-    pub(crate) method: crate::Method<'static>,
+    pub(crate) method: http::Method<'static>,
     pub(crate) route: R,
 }
 
