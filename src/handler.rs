@@ -4,15 +4,16 @@ use crate::{
     either::Either, route::Route, FromRequest, FromRequestParts, IntoResponse, Read, Request,
 };
 
-pub trait Handler<S, P> {
-    type Response: IntoResponse;
-
-    fn call<Body: Read>(
-        &self,
-        req: Request<'_, Body, P>,
-        state: &S,
-    ) -> impl Future<Output = Self::Response>;
-}
+// TODO: figure out when Handler became unused.
+// pub trait Handler<S, P> {
+//     type Response: IntoResponse;
+//
+//     fn call<Body: Read>(
+//         &self,
+//         req: Request<'_, Body, P>,
+//         state: &S,
+//     ) -> impl Future<Output = Self::Response>;
+// }
 
 pub trait HandlerFunction<S, P, Params> {
     type Response: IntoResponse;

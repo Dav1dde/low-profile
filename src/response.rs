@@ -29,7 +29,7 @@ impl<Body> Response<Body> {
 }
 
 pub trait IntoResponse {
-    type Body: Read; // TODO: this should probably be a Body trait
+    type Body: Read; // TODO: this should probably be a Body trait (with content-length?)
 
     fn into_response(self) -> Response<Self::Body>;
 }
