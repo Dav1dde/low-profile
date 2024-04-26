@@ -214,7 +214,7 @@ impl<R: Route<S> + 'static, S, HasRoute> Service for Router<S, R, S, HasRoute> {
                 WriteFmtError::Other(err) => ServiceError::Io(err),
             })?;
         writer
-            .write_all(b"Connection: Close\r\n\r\n")
+            .write_all(b"Connection: Close\r\n")
             .await
             .map_err(ServiceError::Io)?;
         writer.write_all(b"\r\n").await.map_err(ServiceError::Io)?;
