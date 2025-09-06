@@ -34,6 +34,14 @@ pub trait IntoResponse {
     fn into_response(self) -> Response<Self::Body>;
 }
 
+impl IntoResponse for ! {
+    type Body = &'static [u8];
+
+    fn into_response(self) -> Response<Self::Body> {
+        self
+    }
+}
+
 impl IntoResponse for core::convert::Infallible {
     type Body = &'static [u8];
 

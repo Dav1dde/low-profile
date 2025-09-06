@@ -1,6 +1,6 @@
 use core::{fmt, mem::MaybeUninit, str::Utf8Error};
 
-use crate::{http::Method, ErrorType, Read};
+use crate::{ErrorType, Read, http::Method};
 
 pub struct Request<'a, R, P> {
     pub(crate) parts: Parts<'a, P>,
@@ -89,7 +89,7 @@ impl<'a> Headers<'a> {
         })
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&'a str, &'a str)> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = (&'a str, &'a str)> + use<'_, 'a> {
         self.try_iter().flatten()
     }
 

@@ -1,6 +1,6 @@
 use core::future::Future;
 
-use crate::{either::Either, handler, http, IntoResponse, PathSegments, Read, Request, Response};
+use crate::{IntoResponse, PathSegments, Read, Request, Response, either::Either, handler, http};
 
 macro_rules! impl_handler_func {
     ($name:ident, $method:ident) => {
@@ -154,7 +154,7 @@ impl<S, P, R1: Route<S, P>, R2: Route<S, P>> Route<S, P> for Fallback<R1, R2> {
         state: &'a S,
     ) -> Decision<'a, Self::Response, Body, P> {
         match self.route.match_request(req, state).await {
-            Decision::Match(t) => return Decision::Match(Either::Left(t)),
+            Decision::Match(t) => Decision::Match(Either::Left(t)),
             Decision::NoMatch(req) => self
                 .fallback
                 .match_request(req, state)

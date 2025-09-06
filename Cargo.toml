@@ -6,7 +6,7 @@ description = "A no-std HTTP Server inspired by Axum, built for embedded"
 license = "MIT"
 categories = ["no-std", "embedded", "asynchronous", "network-programming", "web-programming::http-server"]
 repository = "https://github.com/Dav1dde/low-profile"
-edition = "2021"
+edition = "2024"
 
 [features]
 default = ["heapless"]
@@ -17,17 +17,17 @@ json = ["dep:serde", "dep:serde-json-core"]
 [dependencies]
 embedded-io-async = "0.6"
 httparse = { version = "1.8.0", default-features = false }
-heapless = { version = "0.8", default-features = false }
+heapless = { version = "0.9", default-features = false }
 
 serde = { version = "1", default-features = false, optional = true }
 serde_json = { version = "1", default-features = false, optional = true }
-serde-json-core = { version = "0.5", default-features = false, optional = true }
+serde-json-core = { version = "0.6", default-features = false, optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.31", features = ["rt", "io-util", "net", "time", "macros"] }
 embedded-io-adapters = { version = "0.6", features = ["tokio-1"] }
 serde = { version = "1", default-features = false, features = ["derive"] }
-heapless = { version = "0.8", default-features = false, features = ["serde"] }
+heapless = { version = "0.9", default-features = false, features = ["serde"] }
 
 [[example]]
 name = "tokio"

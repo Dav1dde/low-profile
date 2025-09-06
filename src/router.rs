@@ -1,13 +1,14 @@
 use core::{marker::PhantomData, mem::MaybeUninit};
 
 use crate::{
+    ErrorType, IntoResponse, PathSegments, Read, Request, Service, Write,
     error::ProtocolError,
     handler, http,
     parse::PathAndQuery,
-    request::{record_header_indices, Body, HeaderIndices, Headers, Parts},
+    request::{Body, HeaderIndices, Headers, Parts, record_header_indices},
     route::{self, Route},
     service::ServiceError,
-    utils, ErrorType, IntoResponse, PathSegments, Read, Request, Service, Write,
+    utils,
 };
 
 mod private {
@@ -162,9 +163,7 @@ impl<R: Route<S> + 'static, S, HasRoute> Service for Router<S, R, S, HasRoute> {
                 Ok(httparse::Status::Complete(len)) => {
                     record_header_indices(&buf, req.headers, &mut headers_indices);
 
-                    let headers = unsafe {
-                        MaybeUninit::slice_assume_init_ref(&headers_indices[..req.headers.len()])
-                    };
+                    let headers = unsafe { headers_indices[..req.headers.len()].assume_init_ref() };
 
                     // TODO: I think these unwraps cant happen, double check
                     break (req.method.unwrap(), req.path.unwrap(), headers, len);

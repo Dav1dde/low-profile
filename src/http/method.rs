@@ -86,7 +86,7 @@ impl<'a, 'b> PartialEq<&'a Method<'b>> for Method<'b> {
     }
 }
 
-impl<'a, 'b> PartialEq<Method<'b>> for &'a Method<'b> {
+impl<'b> PartialEq<Method<'b>> for &Method<'b> {
     #[inline]
     fn eq(&self, other: &Method<'b>) -> bool {
         *self == other

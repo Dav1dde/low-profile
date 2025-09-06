@@ -40,9 +40,9 @@ async fn task(stack: &'static Stack<WifiDevice<'static>>) {
         let (read, write) = socket.split();
         router.serve(read, write).await;
 
-        socket.flush().await.unwrap();
+
         socket.close();
-        Timer::after(Duration::from_millis(100)).await;
+        let _ = socket.flush().await;
         socket.abort();
     }
 }
